@@ -1,0 +1,74 @@
+
+
+weight:
+    1. float value
+        a. seed to meat ratio
+        b. kilos
+            i. if too small not suitable to sell whole
+            ii. smaller mangos can be used for canned and other processes
+
+density
+    1. float
+        a. can estimate seed to meat ratio
+
+firmness:
+    1. float
+        a. test if off
+            i. if too firm, not ripe enough, too soft == gone off, middle == just right
+                b. thresholds, figure out later prob
+
+aroma:
+    1. float: 0-1 value
+        a. certain particles in a certain volume of air
+        b. more particles = more aroma?
+            i. supplementary as big smell could equal good or bad
+            ii. if lower smell == less ripen
+
+3D imaging (volume estimation)
+    1. float
+        a. volume, can be used to measure density
+            i. can estimate seed to meat ratio
+
+image capturing
+    1. percentage match - float
+        a. good mango looks like this, bad mango looks like something else.
+
+grading:
+    1. unsuitable 
+    2. selling whole
+    3. canned sold
+    4. useful for other
+
+solution
+
+grouped values of similar stuff:
+1. weight + volume + firmness + (weight + volume = density) + aroma = 1 module
+2. 3D imaging (volume estimation)
+
+image capturing - see if it has mold (large brown spots, mold looking things) then discard from data
+
+3D imaging feeds into 1 for density calc is to determine if sold whole or canned,
+
+firmess, if ripe then canned food we want unripened mango for shops
+
+
+
+------------------------------------------------------------------------------------------------------------
+
+26 images each representing the alphabet
+
+determine position of hand (front facing, backfacing, side facing)
+    how many fingers are up or down
+    interlapping fingers2
+    hand position (can see palm? or not? .....)
+    index finger pointing in any direction? (other fingers are down compared to index)
+
+
+
+-------------------------------------------------------------------------------------------------------------
+
+grid - get A to B in minimal no. of steps
+directions l,r,u,d
+
+GA
+    get all paths, calc fitness etc
