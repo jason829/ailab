@@ -1,152 +1,102 @@
 import numpy as np
 from random import random
 
-""" 
+class Full_NN:
+    def __init__(self, X, HL, Y):
+        self.X = X
+        self.HL = HL
+        self.Y = Y
 
-dE/DWi =(y - y[i+1]) S'(x[i+1])xi
-S' (x[i+1])=S(x[i+1])(1-s(x[i+1)))
-s(x[i+1]=x[i+1]
-x[i+1]=yiWi
+        L = [X] + HL + [Y]  # Network structure
 
-"""
+        # Weight initialization using Xavier Initialization
+        self.W = [np.random.randn(L[i], L[i + 1]) * np.sqrt(2 / (L[i] + L[i + 1])) for i in range(len(L) - 1)]
+        self.B = [np.zeros((1, L[i + 1])) for i in range(len(L) - 1)] 
+        self.out = [np.zeros((1, layer)) for layer in L]
+        self.Der = [np.zeros_like(w) for w in self.W] 
 
+    def FF(self, x):
+        self.out[0] = x.reshape(1, -1)
+        for i, (w, b) in enumerate(zip(self.W, self.B)):
+            Xnext = np.dot(self.out[i], w) + b
+            if i < len(self.W) - 1:
+                self.out[i + 1] = self.ReLU(Xnext)  # ReLU for hidden layers
+            else:
+                self.out[i + 1] = self.sigmoid(Xnext)  # Sigmoid for the output layer
+        return self.out[-1]
 
-#because a lot of data will be needed, we will use a class approach.
+    def BP(self, Er, lr):
+        for i in reversed(range(len(self.Der))):
+            out = self.out[i + 1]
+            if i == len(self.Der) - 1:
+                delta = Er * self.sigmoid_Der(out) # Outer layer
+            else:
+                delta = Er * self.ReLU_Der(out)  # Hidden layers
 
-class Full_NN(object):
-    #A Multi Layer Neural Network class. We use this as for the way we need to handle the
-    #variables is better suited.
-    def __init__(self, X=2, HL=[2,2], Y=2): #a constructor for some default values.
-        self.X=X #inputs
-        self.HL=HL #hidden layers
-        self.Y=Y #outputs
+            self.Der[i] = np.dot(self.out[i].T, delta)
+            self.B[i] = delta.sum(axis=0, keepdims=True)
+            
+            self.W[i] += self.Der[i] * lr
+            self.B[i] += self.B[i] * lr
+            
+            Er = np.dot(delta, self.W[i].T)
 
-        #we are setting up some class variables for our inputs.
-        L=[X]+HL+[Y] #total number of layers. This creates a representation of the
-        #the network in the format we need it. i.e array of the format [how many inputs, how mnay hidden layers. how many outputs]
-        W=[] #initialize a weight array
-
-
-        for i in range(len(L)-1): #we want to be able go to the next layer up so we set one minus
-            w=np.random.rand(L[i], L[i+1]) #fill them up with random values, that is why we need the numpy library
-            W.append(w) #add the new values to the array.
-        self.W=W #link the class variable to the current variable
+    def train_nn(self, x, target, epochs, lr):
+        error_per_epoch = []
+        for epoch in range(epochs):
+            total_error = 0
+            for j, input in enumerate(x):
+                t = target[j].reshape(1, -1)
+                output = self.FF(input)
+                error = t - output
+                total_error += self.msqe(t, output)
+                self.BP(error,lr)
+            
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch}, Error: {total_error / len(x)}")
+            
+            error_per_epoch.append(total_error/len(x))
         
-        #initialize a derivative array. This are needed to calculate the 
-        # back propagation. they are the derivatives of the activation function
-        Der=[] 
-        for i in range(len(L) - 1):
-            #same reason as above for every line
-            #we don't need random values, just to have them ready to be used. we fill up with zeros
-            d = np.zeros((L[i], L[i+1])) 
-            Der.append(d)
-        self.Der = Der
+        plt.figure(figsize=(8, 6))
+        plt.plot(range(1, len(error_per_epoch) + 1), error_per_epoch, marker='o', label="MAE")
+        plt.title("Mean Absolute Error Over Epochs")
+        plt.xlabel("Epoch")
+        plt.ylabel("MAE")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("part_d_plot.png")
+        plt.show()
+        
 
-        #we will be passing these here as that way the class variable will keep them for us until we need them.
-        
-        out = [] # Output array
-        for i in range(len(L)): # #We don't need to go +1. The outputs are straight forward.
-            o = np.zeros(L[i]) #we don't need random values, just to have them ready to be used. we fill up with zeros.
-            out.append(o)
-        self.out = out
+    def ReLU(self, x):
+        return np.maximum(0, x)
 
-    def FF(self, x): # method will run the network forward
-        out = x # input layer output is just the input
-        
-        self.out[0] = x # Linking the outputs to the class variable for back propagation. Begin with input layer
-        
-        for i, w in enumerate(self.W): # go through the network layer via the weights variable
-            Xnext = np.dot(out,w) # product between weights and output for the next output
-            out = self.sigmoid(Xnext) # use the activation function
-            self.out[i+1] = out # pass result to the class variable to preserve for later. Back propagation
-        
-        return out
-    
-    def BP(self, Er): # Back propagation method. using the output error *Er* to go backwards through the layers and calculate...
-        # the errors needed to update the weights
-        # This will return the final error of the input
-        
-        for i in reversed (range(len(self.Der))): # Go backwards *reversed* through the network
-            # In this loop we are going backwards through the layers based on the following equations
-            """ 
+    def ReLU_Der(self, x):
+        return (x > 0).astype(float)
 
-            dE/DWi =(y - y[i+1]) S'(x[i+1])xi
-            S' (x[i+1])=S(x[i+1])(1-s(x[i+1)))
-            s(x[i+1]=x[i+1]
-            x[i+1]=yiWi
+    def sigmoid(self, x):
+        return 1.0 / (1 + np.exp(-x))
 
-            """
-            
-            out = self.out[i+1] # Get the layer output for the previous layer (we go reverse)
-            
-            D = Er * self.sigmoid_Der(out) # Applying the derivative of the activation function to get delta.delta
-            # This is essentially - dE/DWi =(y - y[i+1]) S'(x[i+1])xi
-            
-            D_fixed = D.reshape(D.shape[0], -1).T # Turn Delta into an array of appropriate size
-            
-            this_out = self.out[i] # current layer output
-            
-            this_out = this_out.reshape(this_out.shape[0], -1) # reshape as before to get column array suitable for the
-            # multiplication we need
-            
-            self.Der[i] = np.dot(this_out, D_fixed) # Matrix multiplication and pass result to class variable
-            
-            Er = np.dot(D, self.W[i].T) # This back propagates the next error we need for the next iteration
-            # this error term is part of the dE/DWi equation for the next layer down in the back propagation
-            # and we pass it on after calculating it in this iteration
-            
-    def train_nn(self, x, target, epochs, lr): # training the network, x = array, target = array, epochs = int, lr = int
-        for i in range(epochs): # training loop for as many epochs as we need
-            S_errors = 0 # variable to carry the error we need to report to the user
-            
-            for j, input in enumerate(x): #iterate through the training data and inputs
-                t = target[j]
-                output = self.FF(input) # use the network calculations for forward calculations
-                
-                e = t - output # obtain the overall Network output error
-                self.BP(e) # use error to do the back propagation
-                self.GD(lr) #Do gradient descent
-                
-                S_errors += self.msqe(t,output) # updates the overall error to show the user
-    
-    def GD(self, lr=0.05): #Gradient descent
-        for i in range(len(self.W)): # go through the weights
-            W = self.W[i]
-            Der = self.Der[i]
-            W += Der * lr # update the weights by applying the learning rate
-            
-    def sigmoid(self, x): # sigmoid activation function
-        y = 1.0/(1 + np.exp(-x))
-        return y
-    
-    def sigmoid_Der(self, x): # sigmoid function derivative
-        sig_der = x * (1.0 - x)
-        return sig_der
-    
-    def msqe(self, t, output): # mean square error
-        msq = np.average((t - output) ** 2)
-        return msq
-    
-if __name__ == "__main__": # Testing class
-    
-    # Essentially teaching a neural network multiplication
-    training_inputs = np.array([[random()/2 for _ in range(2)] for _ in range(1000)]) # Creates a training set of inputs
-    targets = np.array([[i[0] * i[1]] for i in training_inputs]) # Creates a training set of outputs
-    
-    nn = Full_NN(2, [5, 5], 1) # Creates a NN with 2 inputs, 2 hidden layers and 1 output
-    
-    nn.train_nn(training_inputs, targets, 50, 0.1) # Train network with 0.1 learning rate for 10 epochs
-    
-    input = np.array([0.3, 0.2]) # After training this tests the train network
-    
-    target = np.array([0.06]) # Target value
-    
-    NN_output = nn.FF(input)
-    
-    print("=============== Testing the Network Screen Output===============")
-    print ("Test input is ", input)
-    print()
-    print("Target output is ",target)
-    print()
-    print("Neural Network actual output is ",NN_output, "there is an error (not MSQE) of ",target-NN_output, "Actual = ", 0.3*0.2)
-    print("=================================================================")
+    def sigmoid_Der(self, x):
+        return x * (1 - x)
+
+    def msqe(self, t, output):
+        return np.mean((t - output) ** 2)
+
+# Training data: Teach multiplication
+training_inputs = np.array([[random() for _ in range(2)] for _ in range(1000)])
+targets = np.array([[i[0] * i[1]] for i in training_inputs])
+
+nn = Full_NN(2, [10, 10], 1)  # 2 inputs, 2 hidden layers with 10 neurons each, 1 output
+nn.train_nn(training_inputs, targets, 1000, 0.005)  # Train for 500 epochs with lr = 0.01
+
+test_input = np.array([0.5, 0.2])
+target = np.array([0.5 * 0.2])
+output = nn.FF(test_input)
+
+print("=============== Testing the Network Output ===============")
+print(f"Test input: {test_input}")
+print(f"Target output: {target}")
+print(f"Neural Network output: {output}")
+print(f"Error: {target - output}")
+
